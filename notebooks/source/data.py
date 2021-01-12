@@ -4,12 +4,13 @@ import pyccl as ccl
 
 from . import utils
 
-def gen_ccl_spectra(cosmo, n_of_zs):
+def gen_ccl_spectra(cosmo, n_of_zs, l_max=1001):
     """
     Generates the theoretical weak lensing power spectra for a given cosmology.
     :param cosmo: 1D array of cosmological parameters ordered as (Om, Ob, h, ns, sigma8, w0)
     :param n_of_zs: 3D array of redshift distributions. The first axis enumerates the different distributions, the
                     second the redshift values and the last the actual number counts
+    :param l_max: maximum l value to calculate
     :return: The theoretical power spectra of the survey and all cross spectra, the ordering is
              (11, 12, ..., 1n, 22, .., 2n, ..., nn)
     """
@@ -31,7 +32,7 @@ def gen_ccl_spectra(cosmo, n_of_zs):
 
     # Calculate the angular cross-spectrum of the two tracers as a function of ell
     print("Calculating spectra...", flush=True)
-    ell = np.arange(2, 1001)
+    ell = np.arange(2, l_max)
     all_cl = []
     for i in range(4):
         for j in range(4):
