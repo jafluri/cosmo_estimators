@@ -1,6 +1,8 @@
 import matplotlib
 import matplotlib.pyplot as plt
 plt.rc("text", usetex=True)
+
+from scipy.stats import linregress
 import healpy as hp
 import numpy as np
 import seaborn
@@ -172,3 +174,44 @@ def plot_patches_nice(maps, data_mask_pad, fontsize=15, clim=[-0.025, 0.041]):
         fig.lines += [line]
         plt.show()
 
+def plot_true_vs_predicted(labels, predictions, param_labels, fiducial_point):
+    """
+    Plot the mean predictions and their standard deviations against the true labels
+    :param labels: 2D array of shape [n_labels, n_params]
+    :param predictions: 3D predictions to plot of shape [n_labels, n_predictions, n_params]
+    :param param_labels: labels of the parameter
+    :param fiducial_point: fiducial point to plot
+    """
+    # mean and std
+    preds_m = np.mean(predictions, axis=1)
+    preds_s = np.std(predictions, axis=1)
+
+    # number of params
+    n_params = len(param_labels)
+
+    # plot
+    plt.figure(figsize=(12,8*n_params))
+    for i in range(n_params):
+        plt.subplot(n_params, 1, i+1)
+
+        # the x = y line
+        min_label = np.min(labels[:,i])
+        max_label = np.max(labels[:, i])
+        dif_label = max_label - min_label
+        x = np.linspace(min_label - 0.05*dif_label, max_label + 0.05*dif_label)
+        plt.plot(x, x, linestyle="-", color="k", zorder=1000)
+
+        # the error bars
+        plt.errorbar(labels[:,i], preds_m[:,i], yerr=preds_s[:,i], fmt='o', c="#0d47a1", ecolor='lightsteelblue',
+                     capsize=5)
+        # lin regression
+        slope, intercept, _, _, _ = linregress(labels[:,i], preds_m[:,i])
+        # plt.plot(x, slope*x + intercept, "k:", zorder=1000)
+        plt.axvline(fiducial_point[i], c="k", linestyle=":", linewidth=2)
+        plt.xlim(x[0], x[-1])
+        plt.ylim(x[0] - 0.05, x[-1] + 0.05)
+        plt.xticks(fontsize=15)
+        plt.xlabel(r"$%s^\mathrm{true}$" %(param_labels[i]), fontsize=25)
+        plt.yticks(fontsize=15)
+        plt.ylabel(r"$%s^\mathrm{pred}$" %(param_labels[i]), fontsize=25)
+        plt.grid()
