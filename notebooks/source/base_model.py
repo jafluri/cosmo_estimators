@@ -10,8 +10,9 @@ import os
 
 # local imports
 from .estimators import estimator_1st_order
+from . import losses
 
-class BaseModel(object):
+class HealpyModel(object):
     """
     This is a base model, that provides a minimal training step and restore, saving stuff, possibly ditributed...
     """
@@ -195,7 +196,8 @@ class BaseModel(object):
         self.network.summary(**kwargs)
 
     def base_train_step(self, input_tensor, loss_function, input_labels=None, clip_by_value=None, clip_by_norm=None,
-                        clip_by_global_norm=None, training=True, num_workers=None, train_indices=None):
+                        clip_by_global_norm=None, training=True, num_workers=None, train_indices=None,
+                        return_loss=False):
         """
         A base train step given a loss funtion and an input tensor it evaluates the network and performs a single
         gradient decent step, if multiple clippings are requested the order will be:
@@ -214,6 +216,7 @@ class BaseModel(object):
         :param num_workers: how many replicates are working on the same thing, None means no distribution
         :param train_indices: A list of indices, if not None only [trainable_variables[i] for i in train_indices] will
                               be trained
+        :param return_loss: If true, he function returns the actual loss value, otherwise, it is a void
         """
         if train_indices is  None:
             train_variables = self.network.trainable_variables
@@ -255,6 +258,115 @@ class BaseModel(object):
         # apply gradients
         self.optimizer.apply_gradients(zip(gradients, train_variables))
 
+        if return_loss:
+            return loss_val
+
+
+    def setup_delta_loss_step(self, batch_size, off_sets, n_points=1, n_channels=1, n_output=None, jac_weight=0.0,
+                              force_params=None, force_weight=1.0, jac_cond_weight=None, use_log_det=True,
+                              no_correlations=False, tikhonov_regu=False, weights=None, eps=1e-32, n_partial=None,
+                              clip_by_value=None, clip_by_norm=None, clip_by_global_norm=None, img_summary=False,
+                              train_indices=None, return_loss=False):
+        """
+        This sets up a function that performs one training step with the delta loss, which tries to maximize the
+        information of the summary statistics. Note  it needs the maps need to be ordered in a specific way:
+            * The shape of the maps is (n_points*n_same*(2*n_params+1), len(indices), n_channels)
+            * If one splits the maps into (2*n_params+1) parts among the first axis one has the following scheme:
+                * The first part was generated with the unperturbed parameters
+                * The second part was generated with parameters where off_sets[0] was subtracted from the first param
+                * The third part was generated with parameters where off_sets[0] was added from to first param
+                * The fourth part was generated with parameters where off_sets[1] was subtracted from the second param
+                * and so on
+        The training step function that is set up will only work if the input has a shape:
+        (n_points*n_same*(2*n_params+1), len(indices), n_channels)
+        If multiple clippings are requested the order will be:
+            * by value
+            * by norm
+            * by global norm
+        :param batch_size: How many summaries (unperturbed only) are coming from the same parameter set
+        :param off_sets: The off_sets used to perturb the original parameters and used for the Jacobian calculation
+        :param n_points: number of different parameter sets
+        :param n_channels: number of channels from the input
+        :param n_output: Dimensionality of the summary statistic, defaults to predictions.get_shape()[-1]
+        :param jac_weight: The weight of the Jacobian loss (loss that forces the Jacobian of the summaries to be close
+                           to unity (or identity matrix).
+        :param force_params: Either None or a set of parameters with shape (n_points, 1, n_output) which is used to
+                             compute a square loss of the unperturbed summaries. It is useful to set this for example to
+                             zeros such that the network does not produces arbitrary high summary values
+        :param force_weight: The weight of the square loss of force_params
+        :param jac_cond_weight: If not None, this weight is used to add an additional loss using the matrix condition
+                            number of the jacobian
+        :param use_log_det: Use the log of the determinants in the information inequality, should be True. If False the
+                            information inequality is not minimized in a proper manner and the training can become
+                            unstable.
+        :param no_correlations: Do not consider correlations between the parameter, this means that one tries to find
+                                an optimal summary (single value) for each underlying model parameter, only possible
+                                if n_output == n_params
+        :param tikhonov_regu: Use Tikhonov regularization of matrices e.g. to avoid vanishing determinants. This is the
+                              recommended regularization method as it allows the usage of some optimized routines.
+        :param weights: An 1d array of length n_points, used as weights in means of the different points.
+        :param eps: A small positive value used for regularization of things like logs etc. This should only be
+                    increased if tikhonov_regu is used and a error is raised.
+        :param n_partial: To train only on a subset of parameters and not all underlying model parameter. Defaults to
+                          None which means the information inequality is minimized in a normal fashion. Note that due to
+                          the necessity of some algebraic manipulations n_partial == None and n_partial == n_params lead
+                          to slightly different behaviour.
+        :param clip_by_value: Clip the gradients by given 1d array of values into the interval [value[0], value[1]],
+                              defaults to no clipping
+        :param clip_by_norm: Clip the gradients by norm, defaults to no clipping
+        :param clip_by_global_norm: Clip the gradients by global norm, defaults to no clipping
+        :param img_summary: image summary of jacobian and covariance
+        :param train_indices: A list of indices, if not None only [trainable_variables[i] for i in train_indices] will
+                              be trained
+        :param return_loss: If true, he function that is set up returns the actual loss value, otherwise, it is a void
+        """
+        # check if we run in distributed fashion
+        try:
+            num_workers = hvd.size()
+        except ValueError:
+            num_workers = None
+
+        # some definitions
+        n_params = len(off_sets)
+
+        # setup a loss function
+        def loss_func(predictions):
+            return losses.delta_loss(predictions=predictions, n_params=n_params, n_same=batch_size, off_sets=off_sets,
+                                     n_output=n_output, jac_weight=jac_weight, force_params=force_params,
+                                     force_weight=force_weight, jac_cond_weight=jac_cond_weight,
+                                     use_log_det=use_log_det, no_correlations=no_correlations,
+                                     tikhonov_regu=tikhonov_regu, summary_writer=self.summary_writer, training=True,
+                                     weights=weights, eps=eps, n_partial=n_partial, num_workers=num_workers,
+                                     img_summary=img_summary)
+
+        # get the backend float and input shape
+        current_float = losses._get_backend_floatx()
+        in_shape = (n_points * batch_size * (2 * n_params + 1), len(self.network.indices_in), n_channels)
+
+        # tf function with nice signature
+        if return_loss:
+            @tf.function(input_signature=[tf.TensorSpec(shape=in_shape, dtype=current_float)])
+            def delta_train_step(input_batch):
+                loss_val = self.base_train_step(input_tensor=input_batch, loss_function=loss_func, input_labels=None,
+                                                clip_by_value=clip_by_value, clip_by_norm=clip_by_norm,
+                                                clip_by_global_norm=clip_by_global_norm, training=True,
+                                                num_workers=num_workers, train_indices=train_indices,
+                                                return_loss=return_loss)
+                return loss_val
+        else:
+            @tf.function(input_signature=[tf.TensorSpec(shape=in_shape, dtype=current_float)])
+            def delta_train_step(input_batch):
+                self.base_train_step(input_tensor=input_batch, loss_function=loss_func, input_labels=None,
+                                     clip_by_value=clip_by_value, clip_by_norm=clip_by_norm,
+                                     clip_by_global_norm=clip_by_global_norm, training=True, num_workers=num_workers,
+                                     train_indices=train_indices, return_loss=return_loss)
+
+        self.delta_train_step = delta_train_step
+
+        if num_workers is not None:
+            print("It it important to call the function <broadcast_variables> after the first gradient descent step, "
+                  "to ensure that everything is correctly initialized (also the optimizer)")
+
     def broadcast_variables(self):
         """
         boradcasts the variables from the chief to all other workers from the network and optimizer
@@ -262,7 +374,7 @@ class BaseModel(object):
         hvd.broadcast_variables(self.network.weights, root_rank=0)
         hvd.broadcast_variables(self.optimizer.variables(), root_rank=0)
 
-    def setup_1st_order_estimator(self, dset, fidu_param, off_sets, print_params=True, tf_dtype=tf.float32,
+    def setup_1st_order_estimator(self, dset, fidu_param, off_sets, print_params=False, tf_dtype=tf.float32,
                                 tikohnov=0.0, layer=None, dset_is_sims=False):
         """
         Sets up a first order estimator from a given dataset that will be evaluated
