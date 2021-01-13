@@ -2,6 +2,9 @@ import matplotlib
 import matplotlib.pyplot as plt
 plt.rc("text", usetex=True)
 
+from getdist.densities import Density2D
+from getdist import plots
+
 from scipy.stats import linregress
 import healpy as hp
 import numpy as np
@@ -215,3 +218,32 @@ def plot_true_vs_predicted(labels, predictions, param_labels, fiducial_point):
         plt.yticks(fontsize=15)
         plt.ylabel(r"$%s^\mathrm{pred}$" %(param_labels[i]), fontsize=25)
         plt.grid()
+
+def plot_2D_density(density, label=None, scatter=None, fiducial_point=None, xlabel=None, ylabel=None):
+    """
+    Plots a getdist Density2D nicely
+    :param density: getdist Density2D to plot
+    :param label: label for the legend
+    :param scatter: 2D array of shape [n_points, 2] that will be plotted as scatter plot
+    :param fiducial_point: Fiducial point (array of 2 elements) that will be plotted as red X
+    :param xlabel: label for the x-axis
+    :param ylabel: label for the y-axis
+    """
+    g = plots.getSubplotPlotter(6)
+    g.add_2d_contours("", density=density, contour_levels=density.getContourLevels(),
+                      filled=True, color="#0d47a1", alpha=0.75, zorder=0)
+    if label is not None:
+        g.add_legend([label], fontsize=15)
+    ax = g.subplots[0, 0]
+    ax.grid()
+    if fiducial_point is not None:
+        ax.plot(fiducial_point[0], fiducial_point[1], "rX", markersize=10)
+    ax.tick_params("x", labelsize=15)
+    ax.tick_params("y", labelsize=15)
+    if xlabel is not None:
+        ax.set_xlabel(xlabel, fontsize=25)
+    if ylabel is not None:
+        ax.set_ylabel(ylabel, fontsize=25)
+
+    if scatter is not None:
+        ax.scatter(scatter[:, 0], scatter[:, 1], marker=".", c="k", linewidths="0.025", alpha=0.75)
