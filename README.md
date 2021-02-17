@@ -1,17 +1,16 @@
-
 # UAI Submission
 
-This repostitory includes the code used in the submitted paper. The examples in the `notebooks` folder show how the use the code and reproduce most of the figures presented in the paper. Please read the __Installation__ section to install the required packages. 
+This repostitory includes the code used in the submitted paper. The examples in the `notebooks` folder show how to use the code and reproduce most of the figures presented in the paper. Please read the __Installation__ section to install the required packages. 
 
 ## Notebooks
 
-The examples in the `notebooks` folder give introduction to the following things:
+The examples in the `notebooks` folder give an introduction to the following things:
 
-1. `data_generation.ipynb` This notebook shows how one can generate the data used in the Experiments section. Note that the entire dataset needs more than 1TB of free space. We do not recommend to generate the entire dataset on a local machine.
+1. `data_generation.ipynb` This notebook shows how one can generate the data used in the *experiments* section of the paper. Note that the entire dataset needs more than 1TB of free space. We do not recommend to generate the entire dataset on a local machine.
 
-2. `GCNN.ipynb` This notebook gives and introduction into the graph convolutional neural networks used in the paper. It shows how to use the loss function presented in the paper and provides functions to create first order parameter estimators.
+2. `GCNN.ipynb` This notebook gives and introduction into the graph convolutional neural networks (GCNN) used in the paper. It shows how to use the loss function presented in the paper and provides functions to create first order parameter estimators.
 
-3. `GP_ABC.ipynb` How to use Gaussian process regression on ABC log-likelihood estimates. It provides functions that estimate the ABC log-likelihood and their uncertainties as well as a Gaussian process regression module. It can reproduce the constraints of the __2D__ model presented in the paper.
+3. `GP_ABC.ipynb` How to use Gaussian process regression on ABC log-likelihood estimates. It provides functions that estimate the ABC log-likelihood and their uncertainties, as well as a Gaussian process regression module. It can reproduce the constraints (Figure 4) of the __2D__ model presented in the paper.
 
 4. `ground_truth.ipynb` This notebook implements the true likelihood function of the cosmological model used in the paper. We also provide the MCMC chain of the __2D__ model.
 
