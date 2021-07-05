@@ -29,7 +29,8 @@ def tf_matrix_condition(m):
     s = tf.linalg.svd(m, compute_uv=False)
     return s[..., 0] / s[..., -1]
 
-def get_jac_and_cov_matrix(predictions, n_params, n_same, off_sets, n_output=None, summary_writer=None, training=False):
+def get_jac_and_cov_matrix(predictions, n_params, n_same, off_sets, n_output=None, summary_writer=None, training=False,
+                           num_workers=None):
     """
     Calculates the covariance of the fiducial predictions and the jacobians of the means and returns it.
     It assumes a specific ordering of the predictions.
@@ -40,6 +41,7 @@ def get_jac_and_cov_matrix(predictions, n_params, n_same, off_sets, n_output=Non
     :param n_output: dimensionality of the summary statistic, defaults to predictions.get_shape()[-1]
     :param summary_writer: summary writer used to write tensorboard summaries
     :param training: if we are currently training, if False, no summary is written even if a writer is provided
+    :param num_workers: number of workers in total, None means no parallel run
     :return: covariance and jacobians
     """
     # get the current backend
@@ -56,6 +58,13 @@ def get_jac_and_cov_matrix(predictions, n_params, n_same, off_sets, n_output=Non
     # split the output
     splits = [tf.reshape(split, shape=[-1, n_same, n_output])
               for split in tf.split(predictions, num_or_size_splits=2 * n_params + 1, axis=0)]
+
+    # collect if necessary
+    if num_workers is not None:
+        splits = [tf.transpose(hvd.allgather(tf.transpose(split, perm=[1,0,2])), perm=[1,0,2]) for split in splits]
+        n_cov = num_workers*n_same - 1.0
+    else:
+        n_cov = n_same - 1.0
 
     # summary
     if training:
@@ -157,14 +166,6 @@ def delta_loss(predictions, n_params, n_same, off_sets, n_output=None, jac_weigh
 
     cov, jacobian = get_jac_and_cov_matrix(predictions=predictions, n_params=n_params, n_same=n_same, off_sets=off_sets,
                                            n_output=n_output, summary_writer=summary_writer, training=training)
-
-    if num_workers is not None:
-        # get the covariance and correct the dof
-        cov = hvd.allreduce(cov)
-        cov = tf.scalar_mul(num_workers*(n_same - 1.0)/(n_same*num_workers - 1.0), cov)
-
-        # same with jac
-        jacobian = hvd.allreduce(jacobian)
 
     if training and summary_writer is not None:
         with summary_writer.as_default():
