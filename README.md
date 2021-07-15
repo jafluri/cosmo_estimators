@@ -10,7 +10,7 @@ The examples in the `notebooks` folder give an introduction to the following thi
 
 2. `GCNN.ipynb` This notebook gives and introduction into the graph convolutional neural networks (GCNN) used in the paper. It shows how to use the loss function presented in the paper and provides functions to create first order parameter estimators.
 
-3. `GP_ABC.ipynb` How to use Gaussian process regression on ABC log-likelihood estimates. It provides functions that estimate the ABC log-likelihood and their uncertainties, as well as a Gaussian process regression module. It can reproduce the constraints (Figure 4) of the __2D__ model presented in the paper.
+3. `GP_ABC.ipynb` How to use Gaussian process regression on ABC log-posterior estimates. It provides functions that estimate the ABC log-posterior and their uncertainties, as well as a Gaussian process regression module. It can reproduce the constraints (Figure 4) of the __2D__ model presented in the paper.
 
 4. `ground_truth.ipynb` This notebook implements the true likelihood function of the cosmological model used in the paper. We also provide the MCMC chain of the __2D__ model.
 
