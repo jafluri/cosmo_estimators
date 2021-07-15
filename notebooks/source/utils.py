@@ -3,9 +3,9 @@ import mpmath as mp
 
 from . import kernels
 
-def estimate_ABC_likelihood(predictions, fisher_matrix, observation, kernel="sigmoid", scale=0.5):
+def estimate_ABC_posterior(predictions, fisher_matrix, observation, kernel="sigmoid", scale=0.5):
     """
-    Estimates the ABC loglikelihood and its uncertainty from parameter estimations
+    Estimates the ABC log-posterior and its uncertainty from parameter estimations
     :param predictions: 2D array of predictions with shape [n_theta, n_preds, n_params]
     :param fisher_matrix: The (estimated) fisher matrix of the fiducial parameter with shape [n_params, n_params]
     :param observation: The estimator of the observation with shape [1, n_params]
