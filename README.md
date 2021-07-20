@@ -1,6 +1,6 @@
 # Cosmological Parameter Estimation and Inference using Deep Summaries
 
-This repostitory includes the code used in the submitted paper. The examples in the `notebooks` folder show how to use the code and reproduce most of the figures presented in the paper. Please read the __Installation__ section to install the required packages. 
+This repostitory includes the code used in the [Fluri et al. (2021)](https://arxiv.org/abs/2107.09002). The examples in the `notebooks` folder show how to use the code and reproduce most of the figures presented in the paper. Please read the __Installation__ section to install the required packages. 
 
 ## Notebooks
 
